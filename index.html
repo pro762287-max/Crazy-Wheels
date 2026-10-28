@@ -1,0 +1,926 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crazy Wheels 2D - Rival Race</title>
+<style>
+*{box-sizing:border-box}
+:root{--red:#ff4655;--blue:#38c9ff;--bg:#101522}
+body{
+  margin:0;background:var(--bg);color:white;
+  font-family:Arial,Helvetica,sans-serif;text-align:center
+}
+header{
+  padding:16px 10px;background:#171e30;
+  border-bottom:2px solid #303a53
+}
+h1{margin:0;color:var(--red);font-size:clamp(24px,5vw,38px)}
+header p{margin:7px 0 0;color:#bdc8dc}
+main{width:min(1100px,100%);margin:auto;padding:12px}
+.topbar,.buttons,.controls,.garage{
+  display:flex;gap:8px;justify-content:center;
+  flex-wrap:wrap;align-items:center
+}
+.stat{
+  background:#202a40;border:1px solid #34425e;
+  border-radius:10px;padding:10px 13px;font-weight:bold;
+  min-width:100px
+}
+.stat span{color:#54d7ff}
+.gameframe{
+  position:relative;margin-top:12px;overflow:hidden;
+  border:2px solid #34425e;border-radius:13px;
+  background:#8cdfff
+}
+canvas{
+  width:100%;height:auto;display:block;
+  touch-action:none
+}
+button,select{
+  font-size:15px;font-weight:bold;border:0;
+  border-radius:9px;padding:12px 15px;cursor:pointer
+}
+button{background:var(--red);color:white}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.secondary{background:#303d56}
+.blue{background:#087fb0}
+.gold{background:#c98b16}
+#message{min-height:24px;color:#ffe17c;font-weight:bold;margin:10px}
+.controls{margin:12px 0}
+.controls button{min-width:78px;touch-action:none}
+.section{
+  background:#171e30;border:1px solid #303a53;
+  border-radius:12px;padding:14px;margin-top:12px
+}
+.section h2{margin:0 0 12px;font-size:20px}
+.carcard{
+  background:#222d44;border:2px solid #3a4964;
+  border-radius:10px;padding:10px;min-width:125px;
+  max-width:180px;flex:1
+}
+.carcard.selected{border-color:#4de2ff}
+.caricon{font-size:36px;margin:3px}
+.small{font-size:13px;color:#b9c5db;line-height:1.6}
+#overlay{
+  position:fixed;inset:0;z-index:10;background:#070b14dd;
+  display:flex;align-items:center;justify-content:center;
+  padding:16px
+}
+.dialog{
+  width:min(470px,100%);background:#1a2438;
+  border:2px solid #ff4655;border-radius:18px;
+  padding:24px;box-shadow:0 0 45px #0008
+}
+.dialog h2{font-size:28px;color:#ff5966;margin:0 0 12px}
+.dialog p{color:#d5dcec;line-height:1.6}
+.hidden{display:none!important}
+#nitrobar{
+  height:12px;background:#303a53;border-radius:8px;
+  overflow:hidden;margin:8px 0
+}
+#nitrofill{height:100%;width:100%;background:#3de4ff}
+@media(max-width:550px){
+  main{padding:7px}
+  .stat{min-width:85px;padding:8px;font-size:12px}
+  button{padding:11px 12px;font-size:13px}
+  .controls{gap:5px}
+  .controls button{min-width:65px;padding:12px 7px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏎️ CRAZY WHEELS 2D</h1>
+  <p>RIVAL RACE • NITRO • STUNTS • COINS</p>
+</header>
+
+<main>
+  <div class="topbar">
+    <div class="stat">🏁 Race <span id="raceLabel">1 / 5</span></div>
+    <div class="stat">🪙 Coins <span id="coinLabel">0</span></div>
+    <div class="stat">⚡ Nitro <span id="nitroLabel">100%</span></div>
+    <div class="stat">🏆 Wins <span id="winsLabel">0</span></div>
+  </div>
+
+  <div id="nitrobar"><div id="nitrofill"></div></div>
+
+  <div class="gameframe">
+    <canvas id="game" width="960" height="540"></canvas>
+  </div>
+
+  <div id="message">Ready to race? Beat the rival to the finish!</div>
+
+  <div class="controls">
+    <button class="secondary" id="brake">◀ BRAKE</button>
+    <button class="blue" id="boost">⚡ NITRO</button>
+    <button id="gas">GO ▶</button>
+    <button class="gold" id="jump">↗ STUNT</button>
+    <button class="secondary" id="restart">↻ RETRY</button>
+  </div>
+
+  <div class="section">
+    <h2>🚘 Your Garage</h2>
+    <div class="garage" id="garage"></div>
+    <p class="small">Collect coins during races to unlock cars with different speed and nitro abilities.</p>
+  </div>
+
+  <div class="section">
+    <h2>🎮 How to Play</h2>
+    <p class="small">
+      <b>Drive:</b> D or → &nbsp; | &nbsp;
+      <b>Brake:</b> A or ←<br>
+      <b>Nitro:</b> Space or Shift &nbsp; | &nbsp;
+      <b>Stunt / jump:</b> W or ↑<br>
+      <b>Balance in air:</b> W / ↑ and S / ↓ &nbsp; | &nbsp;
+      <b>Restart:</b> R<br>
+      On mobile, use the on-screen buttons. Hold NITRO for a speed burst!
+    </p>
+  </div>
+</main>
+
+<div id="overlay">
+  <div class="dialog">
+    <h2 id="overlayTitle">🏁 RIVAL RACE</h2>
+    <p id="overlayText">
+      Race against a rival, collect coins, jump over obstacles
+      and blast past your opponent with nitro!
+    </p>
+    <button id="start">START RACE</button>
+    <button class="secondary" id="soundButton">🔊 SOUND ON</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+const FINISH = 4600;
+
+const $ = id => document.getElementById(id);
+
+const cars = [
+  {name:"Red Rocket",icon:"🏎️",cost:0,speed:1,nitro:1,color:"#ff3d4f"},
+  {name:"Blue Bolt",icon:"🚙",cost:35,speed:1.12,nitro:1.1,color:"#31bfff"},
+  {name:"Golden Beast",icon:"🚕",cost:80,speed:1.2,nitro:1.05,color:"#ffc64b"},
+  {name:"Neon Racer",icon:"🏎️",cost:150,speed:1.28,nitro:1.25,color:"#b16aff"}
+];
+
+let coins = 0;
+let wins = 0;
+let race = 1;
+let selectedCar = 0;
+let unlockedCars = [0];
+let soundOn = true;
+let audio = null;
+
+let state = "menu";
+let camera = 0;
+let player, rival;
+let nitro = 100;
+let collected = [];
+let obstacles = [];
+let ramps = [];
+let particles = [];
+let scenery = [];
+let keys = {};
+let touch = {gas:false,brake:false,boost:false,jump:false};
+let lastTime = 0;
+let raceTime = 0;
+let stuntScore = 0;
+let finishMessage = "";
+
+const raceNames = [
+  "Sunny Speedway",
+  "Desert Dash",
+  "Neon Night Race",
+  "Mountain Mayhem",
+  "CHAMPION CIRCUIT"
+];
+
+function audioReady(){
+  if(!soundOn)return;
+  try{
+    if(!audio) audio = new (window.AudioContext||window.webkitAudioContext)();
+    if(audio.state==="suspended")audio.resume();
+  }catch(e){}
+}
+
+function beep(freq=440,duration=.12,type="square",volume=.035){
+  if(!soundOn)return;
+  audioReady();
+  if(!audio)return;
+  try{
+    const osc=audio.createOscillator();
+    const gain=audio.createGain();
+    osc.type=type;
+    osc.frequency.setValueAtTime(freq,audio.currentTime);
+    gain.gain.setValueAtTime(volume,audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);
+    osc.connect(gain);gain.connect(audio.destination);
+    osc.start();osc.stop(audio.currentTime+duration);
+  }catch(e){}
+}
+
+function soundCoin(){
+  beep(700,.09,"sine",.04);
+  setTimeout(()=>beep(1000,.12,"sine",.035),65);
+}
+
+function ground(x){
+  return 407
+    + Math.sin(x/155 + race*.3)*15
+    + Math.sin(x/410)*12
+    + Math.sin(x/57)*3;
+}
+
+function makeWorld(){
+  collected=[];
+  obstacles=[];
+  ramps=[];
+  particles=[];
+  scenery=[];
+
+  // Collectible coins are arranged in groups and small arcs.
+  for(let x=360;x<FINISH-150;x+=180){
+    const group = Math.floor(x/180)%4;
+    for(let j=0;j<3;j++){
+      collected.push({
+        x:x+j*25,
+        y:ground(x+j*25)-50-(group===2?18:0),
+        got:false,
+        phase:Math.random()*6
+      });
+    }
+  }
+
+  // Safe, spaced obstacles.
+  for(let x=680;x<FINISH-220;x+=410){
+    obstacles.push({
+      x:x+(Math.floor(x/410)%2)*85,
+      size:17+Math.floor(x/410)%8,
+      hit:false,
+      type:Math.floor(x/410)%3
+    });
+  }
+
+  // Ramps positioned between obstacles.
+  for(let x=520;x<FINISH-250;x+=690){
+    ramps.push({x:x+race*13,used:false});
+  }
+
+  for(let x=100;x<FINISH;x+=120){
+    scenery.push({x,kind:Math.floor(x/120)%4});
+  }
+}
+
+function makeCar(x,isPlayer){
+  return {
+    x:x,y:ground(x)-23,vx:0,vy:0,angle:0,av:0,
+    onGround:true,isPlayer,
+    color:isPlayer?cars[selectedCar].color:"#38bfff",
+    speed:isPlayer?cars[selectedCar].speed:1,
+    boostTimer:0,
+    crashTimer:0,
+    wasAirborne:false
+  };
+}
+
+function updateLabels(){
+  $("raceLabel").textContent=race+" / 5";
+  $("coinLabel").textContent=coins;
+  $("winsLabel").textContent=wins;
+  $("nitroLabel").textContent=Math.floor(nitro)+"%";
+  $("nitrofill").style.width=nitro+"%";
+}
+
+function renderGarage(){
+  const area=$("garage");
+  area.innerHTML="";
+  cars.forEach((c,i)=>{
+    const box=document.createElement("div");
+    box.className="carcard"+(i===selectedCar?" selected":"");
+    const unlocked=unlockedCars.includes(i);
+    box.innerHTML=
+      '<div class="caricon">'+c.icon+'</div>'+
+      '<b>'+c.name+'</b>'+
+      '<p class="small">Speed '+Math.round(c.speed*100)+'%</p>'+
+      '<p class="small">'+(unlocked?"Unlocked":"🪙 "+c.cost+" coins")+'</p>';
+    const b=document.createElement("button");
+    b.className=i===selectedCar?"blue":"secondary";
+    b.textContent=i===selectedCar?"SELECTED":unlocked?"SELECT":"UNLOCK";
+    b.disabled=i===selectedCar;
+    b.onclick=()=>{
+      if(unlockedCars.includes(i)){
+        selectedCar=i;
+        renderGarage();
+        if(state==="menu")draw();
+        beep(520,.1,"sine");
+      }else if(coins>=c.cost){
+        coins-=c.cost;
+        unlockedCars.push(i);
+        selectedCar=i;
+        renderGarage();
+        updateLabels();
+        beep(650,.1,"sine");
+        $("message").textContent=c.name+" unlocked!";
+      }else{
+        $("message").textContent="You need "+(c.cost-coins)+" more coins to unlock "+c.name+".";
+        beep(180,.15,"square");
+      }
+    };
+    box.appendChild(b);
+    area.appendChild(box);
+  });
+}
+
+function beginRace(){
+  audioReady();
+  player=makeCar(100,true);
+  rival=makeCar(50,false);
+  rival.vx=2.5+race*.12;
+  nitro=100;
+  raceTime=0;
+  stuntScore=0;
+  finishMessage="";
+  makeWorld();
+  state="playing";
+  $("overlay").classList.add("hidden");
+  $("message").textContent="GO! Beat the rival to the finish!";
+  updateLabels();
+}
+
+function resetRace(){
+  makeWorld();
+  beginRace();
+}
+
+function winRace(playerWon){
+  if(state!=="playing")return;
+  state=playerWon?"won":"lost";
+  if(playerWon){
+    wins++;
+    coins+=15+race*3;
+    finishMessage="YOU WIN!";
+    $("overlayTitle").textContent="🏆 VICTORY!";
+    $("overlayText").textContent=
+      "Amazing race! You earned "+(15+race*3)+" bonus coins. Your stunt score was "+stuntScore+".";
+    $("start").textContent=race===5?"RACE AGAIN":"NEXT RACE";
+    beep(660,.15,"sine");
+    setTimeout(()=>beep(880,.22,"sine"),150);
+  }else{
+    finishMessage="RIVAL WINS!";
+    $("overlayTitle").textContent="🏁 SO CLOSE!";
+    $("overlayText").textContent=
+      "Your rival reached the finish first. Try using nitro on straight sections and jumping over obstacles.";
+    $("start").textContent="TRY AGAIN";
+    beep(200,.25,"sawtooth");
+  }
+  $("message").textContent=finishMessage;
+  $("overlay").classList.remove("hidden");
+  updateLabels();
+  renderGarage();
+}
+
+function jumpCar(c){
+  if(c.onGround){
+    c.vy=-7.4;
+    c.onGround=false;
+    c.wasAirborne=true;
+    c.av+=(Math.random()-.5)*.035;
+    particles.push({x:c.x,y:c.y,life:16,type:"dust"});
+    beep(280,.08,"triangle",.025);
+  }
+}
+
+function useNitro(){
+  if(nitro<=0||state!=="playing")return;
+  if(player.boostTimer<=0){
+    player.boostTimer=18;
+    beep(180,.18,"sawtooth",.04);
+    particles.push({x:player.x-28,y:player.y,life:22,type:"boost"});
+  }
+}
+
+function addBurst(x,y,type="coin"){
+  for(let i=0;i<8;i++){
+    particles.push({
+      x:x,y:y,vx:(Math.random()-.5)*4,
+      vy:(Math.random()-.8)*4,life:18+Math.random()*15,type
+    });
+  }
+}
+
+function updateCar(c,dt,isPlayer){
+  const factor=dt;
+
+  if(isPlayer){
+    const gas=keys.ArrowRight||keys.KeyD||touch.gas;
+    const brake=keys.ArrowLeft||keys.KeyA||touch.brake;
+    const jump=keys.ArrowUp||keys.KeyW||touch.jump;
+    const balanceLeft=keys.ArrowUp||keys.KeyW;
+    const balanceRight=keys.ArrowDown||keys.KeyS;
+
+    if(gas)c.vx+=.105*factor*c.speed;
+    else c.vx-=.007*factor;
+
+    if(brake)c.vx-=.14*factor;
+    c.vx=Math.max(-1.8,Math.min(6.2*c.speed,c.vx));
+    c.vx*=Math.pow(.997,factor);
+
+    if((keys.Space||keys.ShiftLeft||keys.ShiftRight||touch.boost)&&nitro>0){
+      useNitro();
+    }
+
+    if(jump&&c.onGround)jumpCar(c);
+
+    if(!c.onGround){
+      if(balanceLeft)c.av-=.0017*factor;
+      if(balanceRight)c.av+=.0017*factor;
+    }
+  }else{
+    const targetSpeed=3.4+race*.22;
+    c.vx+=.045*factor;
+    c.vx=Math.min(targetSpeed,c.vx);
+    c.vx*=Math.pow(.999,factor);
+    if(c.onGround&&Math.random()<.003*factor)jumpCar(c);
+  }
+
+  if(c.boostTimer>0){
+    c.vx+=.18*factor;
+    c.boostTimer-=factor;
+    if(isPlayer)nitro=Math.max(0,nitro-.6*factor);
+  }else if(isPlayer){
+    nitro=Math.min(100,nitro+.08*factor);
+  }
+
+  c.vy+=.28*factor;
+  c.x+=c.vx*factor;
+  c.y+=c.vy*factor;
+
+  const floor=ground(c.x);
+  if(c.y+20>=floor){
+    c.y=floor-20;
+    if(!c.onGround&&c.wasAirborne){
+      if(Math.abs(c.angle)>1.2){
+        c.angle*=.55;
+      }
+      if(isPlayer&&Math.abs(c.angle)<.6){
+        stuntScore+=5;
+        $("message").textContent="Nice landing! +5 stunt points";
+      }
+      c.wasAirborne=false;
+    }
+    c.vy=0;
+    c.onGround=true;
+    c.angle*=Math.pow(.86,factor);
+    c.av*=.85;
+  }else{
+    c.onGround=false;
+  }
+
+  if(!c.onGround){
+    c.angle+=c.av*factor;
+    if(isPlayer&&c.x%70<Math.abs(c.vx*factor)+1){
+      stuntScore+=Math.abs(c.angle)>.6?1:0;
+    }
+    // Keep rotations manageable so the game remains playable.
+    c.angle=Math.max(-1.45,Math.min(1.45,c.angle));
+  }
+
+  // A ramp launches the car once as it reaches it.
+  for(const r of ramps){
+    if(!r.used&&c.x>=r.x&&c.x<r.x+Math.max(8,Math.abs(c.vx*factor)+5)){
+      r.used=true;
+      if(c.onGround){
+        c.vy=-7.8;
+        c.onGround=false;
+        c.wasAirborne=true;
+        c.av+=isPlayer?.012:.005;
+        addBurst(c.x,c.y,"dust");
+      }
+    }
+  }
+
+  // Obstacles slow cars on contact.
+  for(const o of obstacles){
+    if(o.hit&&isPlayer)continue;
+    if(Math.abs(c.x-o.x)<o.size+20&&c.onGround&&Math.abs(c.y-(ground(o.x)-20))<32){
+      c.vx*=.57;
+      c.vy=-1.8;
+      c.av+=(c.x<o.x?-.025:.025);
+      if(isPlayer){
+        o.hit=true;
+        addBurst(o.x,c.y,"hit");
+        beep(120,.13,"square",.03);
+        $("message").textContent="Obstacle hit! Use the stunt button to jump.";
+      }
+    }
+  }
+
+  if(c.y>H+150){
+    c.y=floor-25;c.vy=0;c.vx*=.4;
+  }
+
+  c.x=Math.max(20,Math.min(FINISH+100,c.x));
+}
+
+function collectCoins(){
+  for(const coin of collected){
+    if(coin.got)continue;
+    if(Math.abs(player.x-coin.x)<30&&Math.abs(player.y-coin.y)<38){
+      coin.got=true;
+      coins++;
+      addBurst(coin.x,coin.y,"coin");
+      soundCoin();
+      updateLabels();
+      $("message").textContent="🪙 Coin collected!";
+      renderGarage();
+    }
+  }
+}
+
+function update(dt){
+  if(state!=="playing")return;
+  raceTime+=dt/60;
+
+  updateCar(player,dt,true);
+  updateCar(rival,dt,false);
+  collectCoins();
+
+  if(player.x>=FINISH){winRace(true);return;}
+  if(rival.x>=FINISH){winRace(false);return;}
+
+  camera=Math.max(0,player.x-245);
+
+  particles=particles.filter(p=>{
+    p.life-=dt;
+    p.x+=(p.vx||0)*dt;
+    p.y+=(p.vy||0)*dt;
+    p.vy=(p.vy||0)+.12*dt;
+    return p.life>0;
+  });
+
+  updateLabels();
+}
+
+function drawSky(){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#72d2ff");
+  sky.addColorStop(1,"#e7f9ff");
+  ctx.fillStyle=sky;
+  ctx.fillRect(0,0,W,H);
+
+  // Sun.
+  ctx.fillStyle="#fff0a0";
+  ctx.beginPath();ctx.arc(825,80,37,0,Math.PI*2);ctx.fill();
+
+  // Distant hills.
+  ctx.fillStyle="#91cba5";
+  ctx.beginPath();ctx.moveTo(0,365);
+  for(let x=0;x<=W;x+=10){
+    ctx.lineTo(x,330+Math.sin((x+camera*.18)/85)*30+
+      Math.sin((x+camera*.12)/180)*20);
+  }
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+
+  // Clouds.
+  ctx.fillStyle="#ffffffcc";
+  for(let i=0;i<5;i++){
+    const x=((i*230-camera*.12)%1150+1150)%1150-100;
+    const y=65+(i%3)*48;
+    ctx.beginPath();
+    ctx.arc(x,y,20,0,Math.PI*2);
+    ctx.arc(x+24,y-8,27,0,Math.PI*2);
+    ctx.arc(x+52,y,20,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawTrack(){
+  ctx.beginPath();
+  ctx.moveTo(0,H);
+  for(let x=0;x<=W;x+=4){
+    ctx.lineTo(x,ground(x+camera));
+  }
+  ctx.lineTo(W,H);ctx.closePath();
+  ctx.fillStyle="#46a65a";ctx.fill();
+
+  ctx.beginPath();
+  for(let x=0;x<=W;x+=4){
+    if(x===0)ctx.moveTo(x,ground(camera));
+    else ctx.lineTo(x,ground(x+camera));
+  }
+  ctx.strokeStyle="#267c41";
+  ctx.lineWidth=6;ctx.stroke();
+
+  // Roadside dashed decoration.
+  ctx.strokeStyle="#d8ffd9";
+  ctx.lineWidth=3;
+  for(let x=0;x<W;x+=100){
+    const wx=x+camera;
+    const gy=ground(wx);
+    ctx.beginPath();ctx.moveTo(x,gy+30);ctx.lineTo(x+28,gy+30);ctx.stroke();
+  }
+}
+
+function drawScenery(){
+  for(const s of scenery){
+    const x=s.x-camera;
+    if(x<-30||x>W+30)continue;
+    const y=ground(s.x);
+    if(s.kind===0){
+      ctx.fillStyle="#80502c";
+      ctx.fillRect(x-4,y-40,8,40);
+      ctx.fillStyle="#267d3e";
+      ctx.beginPath();ctx.arc(x,y-48,19,0,Math.PI*2);ctx.fill();
+    }else if(s.kind===1){
+      ctx.fillStyle="#ffb6d4";
+      ctx.beginPath();ctx.arc(x,y-14,7,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#ffe77c";
+      ctx.beginPath();ctx.arc(x,y-14,3,0,Math.PI*2);ctx.fill();
+    }else if(s.kind===2){
+      ctx.fillStyle="#ffffff";
+      ctx.fillRect(x-10,y-28,20,28);
+      ctx.fillStyle="#ff5966";
+      ctx.fillRect(x-10,y-28,20,7);
+    }else{
+      ctx.fillStyle="#6f8ea9";
+      ctx.beginPath();ctx.moveTo(x-15,y);ctx.lineTo(x,y-32);ctx.lineTo(x+15,y);ctx.fill();
+    }
+  }
+}
+
+function drawRamps(){
+  for(const r of ramps){
+    const x=r.x-camera;
+    if(x<-80||x>W+80)continue;
+    const y=ground(r.x);
+    ctx.fillStyle="#f7b83b";
+    ctx.beginPath();
+    ctx.moveTo(x-35,y);
+    ctx.lineTo(x+40,y-37);
+    ctx.lineTo(x+42,y);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle="#fff1b5";ctx.lineWidth=3;ctx.stroke();
+  }
+}
+
+function drawObstacles(){
+  for(const o of obstacles){
+    const x=o.x-camera;
+    if(x<-40||x>W+40||(o.hit&&state==="playing"))continue;
+    const y=ground(o.x);
+    if(o.type===0){
+      ctx.fillStyle="#e94545";
+      ctx.fillRect(x-o.size,y-o.size*1.5,o.size*2,o.size*1.5);
+      ctx.strokeStyle="#ffb4b4";ctx.lineWidth=3;
+      ctx.strokeRect(x-o.size,y-o.size*1.5,o.size*2,o.size*1.5);
+    }else if(o.type===1){
+      ctx.fillStyle="#ffb52e";
+      ctx.beginPath();ctx.moveTo(x-o.size,y);
+      ctx.lineTo(x,y-o.size*1.8);
+      ctx.lineTo(x+o.size,y);ctx.fill();
+      ctx.fillStyle="#fff";ctx.fillRect(x-7,y-10,14,4);
+    }else{
+      ctx.fillStyle="#7a4b2b";
+      ctx.fillRect(x-o.size,y-o.size,o.size*2,o.size);
+      ctx.strokeStyle="#d6a56f";ctx.lineWidth=3;
+      ctx.strokeRect(x-o.size,y-o.size,o.size*2,o.size);
+    }
+  }
+}
+
+function drawCoins(){
+  for(const c of collected){
+    if(c.got)continue;
+    const x=c.x-camera;
+    if(x<-25||x>W+25)continue;
+    const y=c.y+Math.sin(performance.now()/240+c.phase)*4;
+    ctx.fillStyle="#ffcc36";
+    ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff3a3";ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle="#9a6510";
+    ctx.font="bold 12px Arial";
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText("$",x,y+1);
+    ctx.textAlign="left";ctx.textBaseline="alphabetic";
+  }
+}
+
+function drawFinish(){
+  const x=FINISH-camera;
+  if(x<-50||x>W+50)return;
+  const y=ground(FINISH);
+  ctx.strokeStyle="#30394b";ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-125);ctx.stroke();
+  const size=14;
+  for(let r=0;r<4;r++){
+    for(let c=0;c<4;c++){
+      ctx.fillStyle=(r+c)%2?"#222":"#fff";
+      ctx.fillRect(x+c*size,y-125+r*size,size,size);
+    }
+  }
+  ctx.fillStyle="#202a40";
+  ctx.font="bold 17px Arial";
+  ctx.fillText("FINISH",x-27,y-137);
+}
+
+function drawCar(c,isPlayer){
+  const x=c.x-camera,y=c.y;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(c.angle);
+
+  if(c.boostTimer>0){
+    ctx.fillStyle="#45e9ff";
+    ctx.beginPath();
+    ctx.moveTo(-25,0);ctx.lineTo(-53,Math.random()*8-4);
+    ctx.lineTo(-25,7);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#ffe16c";
+    ctx.beginPath();
+    ctx.moveTo(-25,0);ctx.lineTo(-42,Math.random()*5-2);
+    ctx.lineTo(-25,5);ctx.closePath();ctx.fill();
+  }
+
+  // Wheels.
+  for(const wx of [-19,19]){
+    ctx.fillStyle="#1c2028";
+    ctx.beginPath();ctx.arc(wx,12,10,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#c4d0df";
+    ctx.beginPath();ctx.arc(wx,12,4,0,Math.PI*2);ctx.fill();
+  }
+
+  // Car body.
+  ctx.fillStyle=isPlayer?cars[selectedCar].color:"#238bd5";
+  ctx.beginPath();
+  ctx.moveTo(-31,4);ctx.lineTo(-27,-10);ctx.lineTo(-14,-20);
+  ctx.lineTo(8,-20);ctx.lineTo(22,-11);ctx.lineTo(31,-7);
+  ctx.lineTo(30,5);ctx.closePath();ctx.fill();
+
+  // Windows.
+  ctx.fillStyle="#b8f2ff";
+  ctx.beginPath();
+  ctx.moveTo(-12,-17);ctx.lineTo(5,-17);
+  ctx.lineTo(15,-10);ctx.lineTo(-12,-10);ctx.closePath();ctx.fill();
+
+  // Headlights.
+  ctx.fillStyle="#fff6ad";
+  ctx.fillRect(25,-5,5,5);
+
+  ctx.restore();
+
+  // Labels.
+  ctx.fillStyle="#142033";
+  ctx.font="bold 13px Arial";
+  ctx.textAlign="center";
+  ctx.fillText(isPlayer?"YOU":"RIVAL",x,y-37);
+  ctx.textAlign="left";
+}
+
+function drawProgress(){
+  const y=24,x=205,w=550;
+  ctx.fillStyle="#142033bb";
+  ctx.fillRect(x,y,w,12);
+  ctx.fillStyle="#ff4655";
+  ctx.fillRect(x,y,w*Math.min(1,player.x/FINISH),12);
+  ctx.fillStyle="#36d2ff";
+  ctx.fillRect(x,y+14,w*Math.min(1,rival.x/FINISH),5);
+  ctx.fillStyle="#172033";
+  ctx.font="bold 12px Arial";
+  ctx.fillText("YOU",x-35,y+11);
+  ctx.fillText("RIVAL",x-43,y+28);
+}
+
+function draw(){
+  drawSky();
+  drawScenery();
+  drawTrack();
+  drawRamps();
+  drawObstacles();
+  drawCoins();
+  drawFinish();
+
+  if(player&&rival){
+    drawCar(rival,false);
+    drawCar(player,true);
+  }else{
+    const preview=makeCar(160,true);
+    drawCar(preview,true);
+    const previewRival=makeCar(80,false);
+    drawCar(previewRival,false);
+  }
+
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(0,p.life/30);
+    if(p.type==="coin")ctx.fillStyle="#ffe05c";
+    else if(p.type==="boost")ctx.fillStyle="#44eaff";
+    else if(p.type==="hit")ctx.fillStyle="#ff7849";
+    else ctx.fillStyle="#dce6ec";
+    ctx.beginPath();
+    ctx.arc(p.x-camera,p.y,3+p.life/8,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  if(player&&rival)drawProgress();
+
+  if(state==="menu"){
+    ctx.fillStyle="#142033cc";
+    ctx.fillRect(250,195,460,85);
+    ctx.fillStyle="#fff";
+    ctx.textAlign="center";
+    ctx.font="bold 30px Arial";
+    ctx.fillText("READY TO RACE?",480,230);
+    ctx.font="16px Arial";
+    ctx.fillText("Press START RACE to begin",480,258);
+    ctx.textAlign="left";
+  }
+}
+
+function loop(time){
+  const dt=Math.min(2,(time-lastTime)/16.67||1);
+  lastTime=time;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown",e=>{
+  if(["ArrowRight","ArrowLeft","ArrowUp","ArrowDown","Space"].includes(e.code)){
+    e.preventDefault();
+  }
+  keys[e.code]=true;
+  if(e.code==="KeyR"&&state!=="menu")resetRace();
+  if(e.code==="Enter"&&state==="menu")beginRace();
+});
+
+window.addEventListener("keyup",e=>keys[e.code]=false);
+window.addEventListener("blur",()=>{
+  keys={};
+  touch={gas:false,brake:false,boost:false,jump:false};
+});
+
+function holdButton(id,prop){
+  const el=$(id);
+  const down=e=>{
+    e.preventDefault();
+    audioReady();
+    touch[prop]=true;
+  };
+  const up=e=>{
+    e.preventDefault();
+    touch[prop]=false;
+  };
+  el.addEventListener("pointerdown",down);
+  el.addEventListener("pointerup",up);
+  el.addEventListener("pointercancel",up);
+  el.addEventListener("pointerleave",up);
+  el.addEventListener("contextmenu",e=>e.preventDefault());
+}
+
+holdButton("gas","gas");
+holdButton("brake","brake");
+holdButton("boost","boost");
+holdButton("jump","jump");
+
+$("start").onclick=()=>{
+  audioReady();
+  if(state==="won"){
+    race=race>=5?1:race+1;
+  }
+  beginRace();
+};
+
+$("restart").onclick=()=>{
+  audioReady();
+  resetRace();
+};
+
+$("soundButton").onclick=()=>{
+  soundOn=!soundOn;
+  $("soundButton").textContent=soundOn?"🔊 SOUND ON":"🔇 SOUND OFF";
+  if(soundOn){audioReady();beep(520,.1,"sine");}
+};
+
+function init(){
+  renderGarage();
+  updateLabels();
+  makeWorld();
+  player=makeCar(100,true);
+  rival=makeCar(50,false);
+  $("overlayTitle").textContent="🏁 RIVAL RACE";
+  $("overlayText").textContent=
+    "Race computer-controlled rivals across five tracks! Collect coins, jump ramps, use nitro, unlock cars and win.";
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
